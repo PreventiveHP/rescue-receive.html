@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MontCode™ Rescue Receive</title>
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col p-6 font-sans">
+
+    <header class="mb-10 text-center">
+        <h1 class="text-red-600 text-2xl font-black italic tracking-tighter">RESCUE RECEIVE</h1>
+        <p class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Emergency Monitor Active</p>
+    </header>
+
+    <div id="main-display" class="flex-1 flex items-center justify-center">
+        <div id="empty-state" class="text-center border-2 border-dashed border-zinc-800 p-20 rounded-[50px]">
+            <p class="text-zinc-700 font-black uppercase text-xl animate-pulse">Waiting for Signal...</p>
+        </div>
+        
+        <div id="alert-card" class="hidden w-full max-w-md bg-red-600 p-10 rounded-[40px] shadow-[0_0_50px_rgba(220,38,38,0.5)] text-center animate-bounce">
+            <h2 class="text-white font-black text-4xl mb-4 italic">CRITICAL ALERT</h2>
+            <p id="patient-info" class="text-red-100 font-bold text-xl uppercase tracking-tighter mb-2">--</p>
+            <p id="data-info" class="text-white font-black text-6xl">--</p>
+        </div>
+    </div>
+
+    <script>
+        // TUS LLAVES REALES
+        const pusher = new Pusher('284fc98940a4b6d4c359', { 
+            cluster: 'us2' 
+        });
+
+        const channel = pusher.subscribe('montcode-rescue');
+
+        channel.bind('new-reading', function(data) {
+            // Ocultar estado vacío
+            document.getElementById('empty-state').classList.add('hidden');
+            
+            // Mostrar tarjeta de alerta
+            const card = document.getElementById('alert-card');
+            card.classList.remove('hidden');
+            
+            // Llenar datos
+            document.getElementById('patient-info').innerText = data.patient;
+            document.getElementById('data-info').innerText = "VALUE: " + data.sys;
+
+            // Voz de alerta
+            const msg = new SpeechSynthesisUtterance("Attention. Rescue signal received from " + data.patient);
+            window.speechSynthesis.speak(msg);
+
+            // Audio de emergencia (Beep)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            osc.type = 'square';
+            osc.connect(audioCtx.destination);
+            osc.start();
+            setTimeout(() => osc.stop(), 1000);
+        });
+    </script>
+</body>
+</html>
