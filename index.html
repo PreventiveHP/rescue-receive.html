@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -23,7 +23,7 @@
         <p class="text-zinc-500 text-xs mb-8 uppercase tracking-widest">Ingrese el ID que aparece en el app del paciente</p>
         
         <input type="text" id="id-input" placeholder="EJ: MC-X82J" 
-               class="bg-zinc-900 border-2 border-zinc-800 text-[#ccff00] text-center text-2xl font-mono p-4 rounded-2xl w-full max-w-xs mb-6 focus:border-[#ccff00] outline-none transition-all">
+               class="bg-zinc-900 border-2 border-zinc-800 text-[#ccff00] text-center text-2xl font-mono p-4 rounded-2xl w-full max-w-xs mb-6 focus:border-[#ccff00] outline-none transition-all uppercase">
         
         <button onclick="pairDevice()" class="bg-[#ccff00] text-black font-black px-12 py-4 rounded-full shadow-xl active:scale-95 transition-all">
             CONECTAR AHORA
@@ -41,7 +41,7 @@
             <img src="logo.png.jpg" alt="MontCode Logo" class="w-full h-full object-cover">
         </div>
         <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.8</h1>
-        <p id="linked-status" class="text-[#ccff00]/50 text-[9px] font-mono mt-2 uppercase"></p>
+        <p id="linked-status" class="text-[#ccff00]/50 text-[9px] font-mono mt-2 uppercase italic tracking-widest"></p>
     </div>
 
     <div id="status-waiting" class="text-center">
@@ -57,22 +57,26 @@
             <p id="emergency-msg" class="text-white font-bold text-2xl md:text-3xl italic uppercase leading-tight">--</p>
         </div>
 
-        <a id="gps-link" target="_blank" class="hidden w-full bg-white text-black font-black py-4 rounded-2xl mb-4 flex items-center justify-center gap-2">
+        <a id="gps-link" target="_blank" class="hidden w-full bg-white text-black font-black py-4 rounded-2xl mb-4 flex items-center justify-center gap-2 transition-transform active:scale-95">
             📍 VIEW LOCATION ON MAP
         </a>
 
         <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700">Clear Alert</button>
     </div>
 
+    <button onclick="unpairDevice()" class="fixed bottom-6 text-zinc-800 hover:text-zinc-500 text-[9px] font-black uppercase tracking-widest transition-colors">
+        Reset Connection / Unpair Device
+    </button>
+
     <script>
         let isAudioUnlocked = false;
-        const savedID = localStorage.getItem('paired_id');
+        let savedID = localStorage.getItem('paired_id');
 
         // --- LÓGICA DE EMPAREJAMIENTO ---
         if (savedID) {
             document.getElementById('pairing-screen').classList.add('hidden');
             document.getElementById('audio-lock').classList.remove('hidden');
-            document.getElementById('linked-status').innerText = "LINKED TO: " + savedID;
+            document.getElementById('linked-status').innerText = "LINKED TO ID: " + savedID;
             initPusher(savedID);
         }
 
@@ -80,6 +84,13 @@
             const inputVal = document.getElementById('id-input').value.trim().toUpperCase();
             if (inputVal) {
                 localStorage.setItem('paired_id', inputVal);
+                location.reload();
+            }
+        }
+
+        function unpairDevice() {
+            if(confirm("¿Desea desvincular este monitor y conectar uno nuevo?")) {
+                localStorage.removeItem('paired_id');
                 location.reload();
             }
         }
@@ -100,7 +111,6 @@
         // --- CONEXIÓN A PUSHER ---
         function initPusher(channelID) {
             const pusher = new Pusher('284fc98940a4b6d4c359', { cluster: 'us2' });
-            // El canal ahora es único para este ID
             const channel = pusher.subscribe('rescue-' + channelID);
 
             channel.bind('new-reading', function(data) {
@@ -111,7 +121,7 @@
                 document.getElementById('patient-name').innerText = data.patient;
                 document.getElementById('emergency-msg').innerText = data.provider;
 
-                // Manejo de GPS
+                // Manejo de GPS (Corregido el link de Google Maps)
                 if (data.location && data.location !== "No GPS Data") {
                     const gpsBtn = document.getElementById('gps-link');
                     gpsBtn.href = `https://www.google.com/maps?q=${data.location}`;
@@ -144,4 +154,4 @@
         window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     </script>
 </body>
-</html> 
+</html>
