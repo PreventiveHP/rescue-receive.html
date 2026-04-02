@@ -1,25 +1,94 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Rescue Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MontCode™ Rescue Monitor</title>
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Animación de pulso de emergencia para el fondo */
+        .emergency-active { animation: emergency-flash 1.5s infinite; }
+        @keyframes emergency-flash {
+            0% { background-color: #000; }
+            50% { background-color: #450a0a; }
+            100% { background-color: #000; }
+        }
+    </style>
 </head>
-<body class="bg-black text-white p-10 text-center">
-    <h1 class="text-red-600 text-4xl font-black mb-10">RESCUE MONITOR</h1>
-    <div id="status" class="text-2xl animate-pulse text-zinc-700">Esperando señal...</div>
-    <div id="alert" class="hidden bg-red-600 p-10 rounded-[40px] mt-10">
-        <h2 class="text-5xl font-black" id="p-name"></h2>
+<body id="main-body" class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans transition-all duration-500">
+
+    <div class="flex flex-col items-center mb-12">
+        <div class="w-20 h-20 mb-4 bg-zinc-900 rounded-full flex items-center justify-center border-2 border-zinc-800 shadow-xl overflow-hidden">
+            <img src="https://i.ibb.co/vz4D824/montcode-logo.png" alt="MontCode Logo" class="w-12 h-12 object-contain">
+        </div>
+        <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.7</h1>
     </div>
+
+    <div id="status-waiting" class="text-center">
+        <div class="inline-block w-12 h-12 border-4 border-zinc-800 border-t-[#ccff00] rounded-full animate-spin mb-4"></div>
+        <p class="text-zinc-700 font-bold uppercase text-xs tracking-widest">Waiting for Signal / Esperando Señal...</p>
+    </div>
+
+    <div id="alert-display" class="hidden w-full max-w-2xl bg-red-600 p-8 md:p-16 rounded-[50px] shadow-[0_0_80px_rgba(220,38,38,0.5)] text-center animate-bounce">
+        <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6">⚠️ Emergency Signal Detected</p>
+        
+        <h2 id="patient-name" class="text-white font-black text-4xl md:text-6xl mb-8 italic tracking-tighter uppercase leading-none">--</h2>
+        
+        <div class="bg-black/20 p-6 rounded-3xl border border-white/10 mb-8">
+            <p id="emergency-msg" class="text-white font-bold text-2xl md:text-3xl italic uppercase leading-tight">--</p>
+        </div>
+
+        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700 transition-all">
+            Clear Alert / Reset
+        </button>
+    </div>
+
     <script>
-        const pusher = new Pusher('284fc98940a4b6d4c359', { cluster: 'us2' });
+        // CONFIGURACIÓN DE PUSHER (Tus llaves reales)
+        const pusher = new Pusher('284fc98940a4b6d4c359', { 
+            cluster: 'us2' 
+        });
+
         const channel = pusher.subscribe('montcode-rescue');
+
         channel.bind('new-reading', function(data) {
-            document.getElementById('status').classList.add('hidden');
-            document.getElementById('alert').classList.remove('hidden');
-            document.getElementById('p-name').innerText = "ALERT: " + data.patient;
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Rescue signal received"));
+            // 1. Cambiar estados visuales
+            document.getElementById('status-waiting').classList.add('hidden');
+            document.getElementById('main-body').classList.add('emergency-active');
+            
+            const alertCard = document.getElementById('alert-display');
+            alertCard.classList.remove('hidden');
+
+            // 2. Insertar datos recibidos
+            document.getElementById('patient-name').innerText = data.patient;
+            document.getElementById('emergency-msg').innerText = data.provider; // Aquí llega el mensaje bilingüe
+
+            // 3. Alerta Sonora (Voz)
+            // Detecta si el mensaje es en español para ajustar la voz
+            const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
+            const utterance = new SpeechSynthesisUtterance();
+            utterance.text = isSpanish 
+                ? `Atención. Alerta de emergencia de ${data.patient}. Mensaje: ${data.provider}` 
+                : `Attention. Emergency alert from ${data.patient}. Message: ${data.provider}`;
+            
+            utterance.lang = isSpanish ? 'es-US' : 'en-US';
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+
+            window.speechSynthesis.speak(utterance);
+
+            // 4. Efecto de sonido de sirena corto
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
         });
     </script>
 </body>
