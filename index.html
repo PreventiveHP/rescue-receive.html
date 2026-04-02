@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -17,9 +17,22 @@
 </head>
 <body id="main-body" class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans transition-all duration-500">
 
-    <div id="audio-lock" class="fixed inset-0 z-50 flex items-center justify-center bg-black/95">
+    <div id="pairing-screen" class="fixed inset-0 z-[60] bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+        <img src="logo.png.jpg" class="w-16 mb-6 opacity-50">
+        <h2 class="text-white font-black text-xl mb-2 italic">VINCULAR MONITOR</h2>
+        <p class="text-zinc-500 text-xs mb-8 uppercase tracking-widest">Ingrese el ID que aparece en el app del paciente</p>
+        
+        <input type="text" id="id-input" placeholder="EJ: MC-X82J" 
+               class="bg-zinc-900 border-2 border-zinc-800 text-[#ccff00] text-center text-2xl font-mono p-4 rounded-2xl w-full max-w-xs mb-6 focus:border-[#ccff00] outline-none transition-all">
+        
+        <button onclick="pairDevice()" class="bg-[#ccff00] text-black font-black px-12 py-4 rounded-full shadow-xl active:scale-95 transition-all">
+            CONECTAR AHORA
+        </button>
+    </div>
+
+    <div id="audio-lock" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/95">
         <button onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all">
-            ACTIVATE RESCUE MONITOR
+            ACTIVATE MONITOR AUDIO
         </button>
     </div>
 
@@ -28,66 +41,94 @@
             <img src="logo.png.jpg" alt="MontCode Logo" class="w-full h-full object-cover">
         </div>
         <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.8</h1>
+        <p id="linked-status" class="text-[#ccff00]/50 text-[9px] font-mono mt-2 uppercase"></p>
     </div>
 
     <div id="status-waiting" class="text-center">
         <div class="inline-block w-12 h-12 border-4 border-zinc-800 border-t-[#ccff00] rounded-full animate-spin mb-4"></div>
-        <p class="text-zinc-700 font-bold uppercase text-[10px] tracking-widest">Monitoring for Emergencies...</p>
+        <p class="text-zinc-700 font-bold uppercase text-[10px] tracking-widest">Monitoring Signal...</p>
     </div>
 
     <div id="alert-display" class="hidden w-full max-w-2xl bg-red-600 p-8 md:p-16 rounded-[50px] shadow-[0_0_80px_rgba(220,38,38,0.5)] text-center">
-        <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6">⚠️ Emergency Signal Detected</p>
+        <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6">⚠️ EMERGENCY SIGNAL</p>
         <h2 id="patient-name" class="text-white font-black text-4xl md:text-6xl mb-8 italic tracking-tighter uppercase leading-none">--</h2>
+        
         <div class="bg-black/20 p-6 rounded-3xl border border-white/10 mb-8">
             <p id="emergency-msg" class="text-white font-bold text-2xl md:text-3xl italic uppercase leading-tight">--</p>
         </div>
-        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700">Reset System</button>
+
+        <a id="gps-link" target="_blank" class="hidden w-full bg-white text-black font-black py-4 rounded-2xl mb-4 flex items-center justify-center gap-2">
+            📍 VIEW LOCATION ON MAP
+        </a>
+
+        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700">Clear Alert</button>
     </div>
 
     <script>
         let isAudioUnlocked = false;
+        const savedID = localStorage.getItem('paired_id');
 
-        // Función para romper el bloqueo del navegador
+        // --- LÓGICA DE EMPAREJAMIENTO ---
+        if (savedID) {
+            document.getElementById('pairing-screen').classList.add('hidden');
+            document.getElementById('audio-lock').classList.remove('hidden');
+            document.getElementById('linked-status').innerText = "LINKED TO: " + savedID;
+            initPusher(savedID);
+        }
+
+        function pairDevice() {
+            const inputVal = document.getElementById('id-input').value.trim().toUpperCase();
+            if (inputVal) {
+                localStorage.setItem('paired_id', inputVal);
+                location.reload();
+            }
+        }
+
         function unlockAudio() {
             isAudioUnlocked = true;
             document.getElementById('audio-lock').classList.add('hidden');
-            
-            // Sonido de confirmación silencioso para "despertar" el motor de audio
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            gain.gain.value = 0.01; 
+            gain.gain.value = 0.01;
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        const pusher = new Pusher('284fc98940a4b6d4c359', { cluster: 'us2' });
-        const channel = pusher.subscribe('montcode-rescue');
+        // --- CONEXIÓN A PUSHER ---
+        function initPusher(channelID) {
+            const pusher = new Pusher('284fc98940a4b6d4c359', { cluster: 'us2' });
+            // El canal ahora es único para este ID
+            const channel = pusher.subscribe('rescue-' + channelID);
 
-        channel.bind('new-reading', function(data) {
-            document.getElementById('status-waiting').classList.add('hidden');
-            document.getElementById('main-body').classList.add('emergency-active');
-            document.getElementById('alert-display').classList.remove('hidden');
-            document.getElementById('patient-name').innerText = data.patient;
-            document.getElementById('emergency-msg').innerText = data.provider;
+            channel.bind('new-reading', function(data) {
+                document.getElementById('status-waiting').classList.add('hidden');
+                document.getElementById('main-body').classList.add('emergency-active');
+                document.getElementById('alert-display').classList.remove('hidden');
+                
+                document.getElementById('patient-name').innerText = data.patient;
+                document.getElementById('emergency-msg').innerText = data.provider;
 
-            if (isAudioUnlocked) {
-                playEmergencyVoice(data);
-            }
-        });
+                // Manejo de GPS
+                if (data.location && data.location !== "No GPS Data") {
+                    const gpsBtn = document.getElementById('gps-link');
+                    gpsBtn.href = `https://www.google.com/maps?q=${data.location}`;
+                    gpsBtn.classList.remove('hidden');
+                }
+
+                if (isAudioUnlocked) playEmergencyVoice(data);
+            });
+        }
 
         function playEmergencyVoice(data) {
             const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
             const utterance = new SpeechSynthesisUtterance();
-            
-            // Mensaje optimizado para claridad técnica
             utterance.text = isSpanish 
-                ? `Alerta de Mont Code. ${data.patient} necesita ayuda inmediata. Mensaje: ${data.provider}` 
-                : `Mont Code Alert. Emergency signal from ${data.patient}. Message: ${data.provider}`;
+                ? `Alerta de Mont Code. ${data.patient} necesita ayuda. ${data.provider}` 
+                : `Mont Code Alert. Emergency signal from ${data.patient}. ${data.provider}`;
 
-            // Seleccionar la mejor voz disponible
             const voices = window.speechSynthesis.getVoices();
             const preferredVoice = voices.find(v => 
                 (isSpanish ? v.lang.includes('es') : v.lang.includes('en')) && 
@@ -96,14 +137,11 @@
 
             if (preferredVoice) utterance.voice = preferredVoice;
             utterance.lang = isSpanish ? 'es-US' : 'en-US';
-            utterance.rate = 0.85; // Un poco más lento para mejor pronunciación
-            utterance.pitch = 1.0;
-
+            utterance.rate = 0.85;
             window.speechSynthesis.speak(utterance);
         }
 
-        // Cargar voces de antemano
         window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     </script>
 </body>
-</html>
+</html> 
