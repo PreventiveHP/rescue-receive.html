@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,7 +7,6 @@
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Animación de pulso de emergencia para el fondo */
         .emergency-active { animation: emergency-flash 1.5s infinite; }
         @keyframes emergency-flash {
             0% { background-color: #000; }
@@ -18,77 +17,93 @@
 </head>
 <body id="main-body" class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans transition-all duration-500">
 
+    <div id="audio-lock" class="fixed inset-0 z-50 flex items-center justify-center bg-black/95">
+        <button onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all">
+            ACTIVATE RESCUE MONITOR
+        </button>
+    </div>
+
     <div class="flex flex-col items-center mb-12">
         <div class="w-20 h-20 mb-4 bg-zinc-900 rounded-full flex items-center justify-center border-2 border-zinc-800 shadow-xl overflow-hidden">
             <img src="logo.png.jpg" alt="MontCode Logo" class="w-full h-full object-cover">
         </div>
-        <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.7</h1>
+        <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.8</h1>
     </div>
 
     <div id="status-waiting" class="text-center">
         <div class="inline-block w-12 h-12 border-4 border-zinc-800 border-t-[#ccff00] rounded-full animate-spin mb-4"></div>
-        <p class="text-zinc-700 font-bold uppercase text-xs tracking-widest">Waiting for Signal / Esperando Señal...</p>
+        <p class="text-zinc-700 font-bold uppercase text-[10px] tracking-widest">Monitoring for Emergencies...</p>
     </div>
 
-    <div id="alert-display" class="hidden w-full max-w-2xl bg-red-600 p-8 md:p-16 rounded-[50px] shadow-[0_0_80px_rgba(220,38,38,0.5)] text-center animate-bounce">
+    <div id="alert-display" class="hidden w-full max-w-2xl bg-red-600 p-8 md:p-16 rounded-[50px] shadow-[0_0_80px_rgba(220,38,38,0.5)] text-center">
         <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6">⚠️ Emergency Signal Detected</p>
-        
         <h2 id="patient-name" class="text-white font-black text-4xl md:text-6xl mb-8 italic tracking-tighter uppercase leading-none">--</h2>
-        
         <div class="bg-black/20 p-6 rounded-3xl border border-white/10 mb-8">
             <p id="emergency-msg" class="text-white font-bold text-2xl md:text-3xl italic uppercase leading-tight">--</p>
         </div>
-
-        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700 transition-all">
-            Clear Alert / Reset
-        </button>
+        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700">Reset System</button>
     </div>
 
     <script>
-        // CONFIGURACIÓN DE PUSHER
-        const pusher = new Pusher('284fc98940a4b6d4c359', { 
-            cluster: 'us2' 
-        });
+        let isAudioUnlocked = false;
 
-        const channel = pusher.subscribe('montcode-rescue');
-
-        channel.bind('new-reading', function(data) {
-            // 1. Cambiar estados visuales
-            document.getElementById('status-waiting').classList.add('hidden');
-            document.getElementById('main-body').classList.add('emergency-active');
+        // Función para romper el bloqueo del navegador
+        function unlockAudio() {
+            isAudioUnlocked = true;
+            document.getElementById('audio-lock').classList.add('hidden');
             
-            const alertCard = document.getElementById('alert-display');
-            alertCard.classList.remove('hidden');
-
-            // 2. Insertar datos recibidos
-            document.getElementById('patient-name').innerText = data.patient;
-            document.getElementById('emergency-msg').innerText = data.provider;
-
-            // 3. Alerta Sonora (Voz Inteligente)
-            const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
-            const utterance = new SpeechSynthesisUtterance();
-            utterance.text = isSpanish 
-                ? `Atención. Alerta de emergencia de ${data.patient}. Mensaje: ${data.provider}` 
-                : `Attention. Emergency alert from ${data.patient}. Message: ${data.provider}`;
-            
-            utterance.lang = isSpanish ? 'es-US' : 'en-US';
-            utterance.rate = 0.9;
-            utterance.pitch = 1.1;
-
-            window.speechSynthesis.speak(utterance);
-
-            // 4. Sonido de sirena sintetizado
+            // Sonido de confirmación silencioso para "despertar" el motor de audio
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+            gain.gain.value = 0.01; 
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        const pusher = new Pusher('284fc98940a4b6d4c359', { cluster: 'us2' });
+        const channel = pusher.subscribe('montcode-rescue');
+
+        channel.bind('new-reading', function(data) {
+            document.getElementById('status-waiting').classList.add('hidden');
+            document.getElementById('main-body').classList.add('emergency-active');
+            document.getElementById('alert-display').classList.remove('hidden');
+            document.getElementById('patient-name').innerText = data.patient;
+            document.getElementById('emergency-msg').innerText = data.provider;
+
+            if (isAudioUnlocked) {
+                playEmergencyVoice(data);
+            }
         });
+
+        function playEmergencyVoice(data) {
+            const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
+            const utterance = new SpeechSynthesisUtterance();
+            
+            // Mensaje optimizado para claridad técnica
+            utterance.text = isSpanish 
+                ? `Alerta de Mont Code. ${data.patient} necesita ayuda inmediata. Mensaje: ${data.provider}` 
+                : `Mont Code Alert. Emergency signal from ${data.patient}. Message: ${data.provider}`;
+
+            // Seleccionar la mejor voz disponible
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => 
+                (isSpanish ? v.lang.includes('es') : v.lang.includes('en')) && 
+                (v.name.includes('Google') || v.name.includes('Premium'))
+            );
+
+            if (preferredVoice) utterance.voice = preferredVoice;
+            utterance.lang = isSpanish ? 'es-US' : 'en-US';
+            utterance.rate = 0.85; // Un poco más lento para mejor pronunciación
+            utterance.pitch = 1.0;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Cargar voces de antemano
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     </script>
 </body>
 </html>
