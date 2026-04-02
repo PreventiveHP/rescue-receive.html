@@ -20,7 +20,7 @@
 
     <div class="flex flex-col items-center mb-12">
         <div class="w-20 h-20 mb-4 bg-zinc-900 rounded-full flex items-center justify-center border-2 border-zinc-800 shadow-xl overflow-hidden">
-            <img src="https://i.ibb.co/vz4D824/montcode-logo.png" alt="MontCode Logo" class="w-12 h-12 object-contain">
+            <img src="logo.png.jpg" alt="MontCode Logo" class="w-full h-full object-cover">
         </div>
         <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.7</h1>
     </div>
@@ -45,7 +45,7 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE PUSHER (Tus llaves reales)
+        // CONFIGURACIÓN DE PUSHER
         const pusher = new Pusher('284fc98940a4b6d4c359', { 
             cluster: 'us2' 
         });
@@ -62,10 +62,9 @@
 
             // 2. Insertar datos recibidos
             document.getElementById('patient-name').innerText = data.patient;
-            document.getElementById('emergency-msg').innerText = data.provider; // Aquí llega el mensaje bilingüe
+            document.getElementById('emergency-msg').innerText = data.provider;
 
-            // 3. Alerta Sonora (Voz)
-            // Detecta si el mensaje es en español para ajustar la voz
+            // 3. Alerta Sonora (Voz Inteligente)
             const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
             const utterance = new SpeechSynthesisUtterance();
             utterance.text = isSpanish 
@@ -78,7 +77,7 @@
 
             window.speechSynthesis.speak(utterance);
 
-            // 4. Efecto de sonido de sirena corto
+            // 4. Sonido de sirena sintetizado
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
