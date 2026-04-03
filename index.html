@@ -17,9 +17,12 @@
 </head>
 <body id="main-body" class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans transition-all duration-500">
 
-    <div class="absolute top-6 right-6 flex gap-4 bg-zinc-900/50 p-2 rounded-full border border-zinc-800 z-10">
-        <button onclick="setMonitorLang('en')" id="m-btn-en" class="text-2xl grayscale-0 scale-110 transition-all">🇺🇸</button>
-        <button onclick="setMonitorLang('es')" id="m-btn-es" class="text-2xl grayscale opacity-50 transition-all">🇪🇸</button>
+    <div class="absolute top-6 right-6 flex items-center gap-4 z-10">
+        <button onclick="testPush()" title="Test Alert" class="bg-zinc-800 p-2 rounded-full hover:bg-zinc-700 transition-colors">🔔</button>
+        <div class="flex gap-4 bg-zinc-900/50 p-2 rounded-full border border-zinc-800">
+            <button onclick="setMonitorLang('en')" id="m-btn-en" class="text-2xl grayscale-0 scale-110 transition-all">🇺🇸</button>
+            <button onclick="setMonitorLang('es')" id="m-btn-es" class="text-2xl grayscale opacity-50 transition-all">🇪🇸</button>
+        </div>
     </div>
 
     <div id="pairing-screen" class="fixed inset-0 z-[60] bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
@@ -31,9 +34,12 @@
     </div>
 
     <div id="audio-lock" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/95">
-        <button id="unlock-btn" onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all uppercase italic">
-            Activate Monitor Audio
-        </button>
+        <div class="text-center p-6">
+            <button id="unlock-btn" onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all uppercase italic mb-4">
+                Activate Monitor Audio
+            </button>
+            <p class="text-zinc-500 text-[10px] uppercase tracking-widest mt-4">Essential for real-time alerts</p>
+        </div>
     </div>
 
     <div class="flex flex-col items-center mb-12">
@@ -74,16 +80,27 @@
                 pairBtn: "CONNECT NOW", unlockBtn: "Activate Monitor Audio",
                 waiting: "Monitoring Signal...", clearBtn: "Clear Alert",
                 resetBtn: "Reset Connection", unpairConf: "Unpair this monitor?",
-                voiceAlert: "MontCode Alert. Emergency signal from "
+                voiceAlert: "MontCode Alert. Emergency signal from ",
+                testMsg: "Test Alert Active"
             },
             es: {
                 pairTitle: "VINCULAR MONITOR", pairSub: "Ingrese el ID del app del paciente",
                 pairBtn: "CONECTAR AHORA", unlockBtn: "Activar Audio del Monitor",
                 waiting: "Monitoreando Señal...", clearBtn: "Limpiar Alerta",
                 resetBtn: "Reiniciar Conexión", unpairConf: "¿Desvincular este monitor?",
-                voiceAlert: "Alerta MontCode. Señal de emergencia de "
+                voiceAlert: "Alerta MontCode. Señal de emergencia de ",
+                testMsg: "Prueba de Alerta Activa"
             }
         };
+
+        // --- REGISTRO DE SERVICE WORKER ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('Guardian SW Active');
+                }).catch(err => console.log('SW Registration failed', err));
+            });
+        }
 
         function setMonitorLang(lang) {
             currentMLang = lang;
@@ -125,7 +142,12 @@
         function unlockAudio() {
             isAudioUnlocked = true;
             document.getElementById('audio-lock').classList.add('hidden');
-            // Play initial silent sound to wake up the engine
+            
+            // Solicitar permiso de notificaciones Push aquí
+            if ("Notification" in window) {
+                Notification.requestPermission();
+            }
+
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             osc.start(); osc.stop(audioCtx.currentTime + 0.1);
@@ -135,20 +157,28 @@
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            
-            osc.type = 'square'; // Sonido más penetrante
+            osc.type = 'square';
             osc.frequency.setValueAtTime(660, audioCtx.currentTime);
             osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.3);
             osc.frequency.linearRampToValueAtTime(660, audioCtx.currentTime + 0.6);
-            
             gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 1.5);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+        }
+
+        function testPush() {
+            if (Notification.permission === "granted") {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification("MontCode™ Test", {
+                        body: monitorTranslations[currentMLang].testMsg,
+                        icon: 'logo.png.jpg',
+                        vibrate: [200, 100, 200]
+                    });
+                });
+            } else {
+                alert("Please click 'Activate Monitor Audio' first to grant permissions.");
+            }
         }
 
         function initPusher(channelID) {
