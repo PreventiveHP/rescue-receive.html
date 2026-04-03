@@ -89,7 +89,7 @@
         }
 
         function unpairDevice() {
-            if(confirm("¿Desea desvincular este monitor y conectar uno nuevo?")) {
+            if(confirm("¿Desea desvincular este monitor?")) {
                 localStorage.removeItem('paired_id');
                 location.reload();
             }
@@ -98,14 +98,35 @@
         function unlockAudio() {
             isAudioUnlocked = true;
             document.getElementById('audio-lock').classList.add('hidden');
+            // Crear contexto silencioso para ganar el permiso del navegador
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // --- SIRENA AGRESIVA ---
+        function playEmergencySiren() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            gain.gain.value = 0.01;
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            // Efecto de sirena (sube y baja frecuencia)
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+            osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 1.0);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 1.5);
+            osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 2.0);
+
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.5);
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
+            
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
+            osc.stop(audioCtx.currentTime + 2.5);
         }
 
         // --- CONEXIÓN A PUSHER ---
@@ -114,6 +135,7 @@
             const channel = pusher.subscribe('rescue-' + channelID);
 
             channel.bind('new-reading', function(data) {
+                // UI de Alerta
                 document.getElementById('status-waiting').classList.add('hidden');
                 document.getElementById('main-body').classList.add('emergency-active');
                 document.getElementById('alert-display').classList.remove('hidden');
@@ -121,14 +143,19 @@
                 document.getElementById('patient-name').innerText = data.patient;
                 document.getElementById('emergency-msg').innerText = data.provider;
 
-                // Manejo de GPS (Corregido el link de Google Maps)
                 if (data.location && data.location !== "No GPS Data") {
                     const gpsBtn = document.getElementById('gps-link');
-                    gpsBtn.href = `https://www.google.com/maps?q=${data.location}`;
+                    const coords = data.location.split(',');
+                    gpsBtn.href = `https://www.google.com/maps?q=${coords[0]},${coords[1]}`;
                     gpsBtn.classList.remove('hidden');
                 }
 
-                if (isAudioUnlocked) playEmergencyVoice(data);
+                // Audio Agresivo
+                if (isAudioUnlocked) {
+                    playEmergencySiren();
+                    // Esperar un segundo de sirena antes de hablar
+                    setTimeout(() => playEmergencyVoice(data), 1000);
+                }
             });
         }
 
@@ -136,8 +163,8 @@
             const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
             const utterance = new SpeechSynthesisUtterance();
             utterance.text = isSpanish 
-                ? `Alerta de Mont Code. ${data.patient} necesita ayuda. ${data.provider}` 
-                : `Mont Code Alert. Emergency signal from ${data.patient}. ${data.provider}`;
+                ? `Alerta de Mont Code. ${data.patient} solicita asistencia inmediata. Mensaje: ${data.provider}` 
+                : `Mont Code Alert. Emergency signal from ${data.patient}. Message: ${data.provider}`;
 
             const voices = window.speechSynthesis.getVoices();
             const preferredVoice = voices.find(v => 
@@ -147,7 +174,7 @@
 
             if (preferredVoice) utterance.voice = preferredVoice;
             utterance.lang = isSpanish ? 'es-US' : 'en-US';
-            utterance.rate = 0.85;
+            utterance.rate = 0.9;
             window.speechSynthesis.speak(utterance);
         }
 
