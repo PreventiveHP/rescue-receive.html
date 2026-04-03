@@ -7,33 +7,38 @@
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .emergency-active { animation: emergency-flash 1.5s infinite; }
+        .emergency-active { animation: emergency-flash 1s infinite; }
         @keyframes emergency-flash {
             0% { background-color: #000; }
-            50% { background-color: #450a0a; }
+            50% { background-color: #7f1d1d; }
             100% { background-color: #000; }
         }
     </style>
 </head>
 <body id="main-body" class="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans transition-all duration-500">
 
+    <div class="absolute top-6 right-6 flex gap-4 bg-zinc-900/50 p-2 rounded-full border border-zinc-800 z-10">
+        <button onclick="setMonitorLang('en')" id="m-btn-en" class="text-2xl grayscale-0 scale-110 transition-all">🇺🇸</button>
+        <button onclick="setMonitorLang('es')" id="m-btn-es" class="text-2xl grayscale opacity-50 transition-all">🇪🇸</button>
+    </div>
+
     <div id="pairing-screen" class="fixed inset-0 z-[60] bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
         <img src="logo.png.jpg" class="w-16 mb-6 opacity-50">
-        <h2 class="text-white font-black text-xl mb-2 italic">VINCULAR MONITOR</h2>
-        <p class="text-zinc-500 text-xs mb-8 uppercase tracking-widest">Ingrese el ID que aparece en el app del paciente</p>
-        <input type="text" id="id-input" placeholder="EJ: MC-X82J" class="bg-zinc-900 border-2 border-zinc-800 text-[#ccff00] text-center text-2xl font-mono p-4 rounded-2xl w-full max-w-xs mb-6 focus:border-[#ccff00] outline-none transition-all uppercase">
-        <button onclick="pairDevice()" class="bg-[#ccff00] text-black font-black px-12 py-4 rounded-full shadow-xl active:scale-95 transition-all">CONECTAR AHORA</button>
+        <h2 id="pair-title" class="text-white font-black text-xl mb-2 italic">LINK MONITOR</h2>
+        <p id="pair-sub" class="text-zinc-500 text-xs mb-8 uppercase tracking-widest text-pretty">Enter the Device ID from the Patient's App</p>
+        <input type="text" id="id-input" placeholder="EX: MC-X82J" class="bg-zinc-900 border-2 border-zinc-800 text-[#ccff00] text-center text-2xl font-mono p-4 rounded-2xl w-full max-w-xs mb-6 focus:border-[#ccff00] outline-none transition-all uppercase">
+        <button id="pair-btn" onclick="pairDevice()" class="bg-[#ccff00] text-black font-black px-12 py-4 rounded-full shadow-xl active:scale-95 transition-all">CONNECT NOW</button>
     </div>
 
     <div id="audio-lock" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/95">
-        <button onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all">
-            ACTIVATE MONITOR AUDIO
+        <button id="unlock-btn" onclick="unlockAudio()" class="bg-[#ccff00] text-black font-black py-6 px-10 rounded-full text-xl shadow-[0_0_30px_rgba(204,255,0,0.4)] active:scale-95 transition-all uppercase italic">
+            Activate Monitor Audio
         </button>
     </div>
 
     <div class="flex flex-col items-center mb-12">
         <div class="w-20 h-20 mb-4 bg-zinc-900 rounded-full flex items-center justify-center border-2 border-zinc-800 shadow-xl overflow-hidden">
-            <img src="logo.png.jpg" alt="MontCode Logo" class="w-full h-full object-cover">
+            <img src="logo.png.jpg" alt="Logo" class="w-full h-full object-cover">
         </div>
         <h1 class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Rescue Monitor v5.8</h1>
         <p id="linked-status" class="text-[#ccff00]/50 text-[9px] font-mono mt-2 uppercase italic tracking-widest"></p>
@@ -41,11 +46,11 @@
 
     <div id="status-waiting" class="text-center">
         <div class="inline-block w-12 h-12 border-4 border-zinc-800 border-t-[#ccff00] rounded-full animate-spin mb-4"></div>
-        <p class="text-zinc-700 font-bold uppercase text-[10px] tracking-widest">Monitoring Signal...</p>
+        <p id="waiting-text" class="text-zinc-700 font-bold uppercase text-[10px] tracking-widest">Monitoring Signal...</p>
     </div>
 
     <div id="alert-display" class="hidden w-full max-w-2xl bg-red-600 p-8 md:p-16 rounded-[50px] shadow-[0_0_80px_rgba(220,38,38,0.5)] text-center">
-        <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6">⚠️ EMERGENCY SIGNAL</p>
+        <p class="text-red-200 font-black uppercase tracking-[0.2em] text-xs mb-6 italic">⚠️ EMERGENCY SIGNAL</p>
         <h2 id="patient-name" class="text-white font-black text-4xl md:text-6xl mb-8 italic tracking-tighter uppercase leading-none">--</h2>
         <div class="bg-black/20 p-6 rounded-3xl border border-white/10 mb-8">
             <p id="emergency-msg" class="text-white font-bold text-2xl md:text-3xl italic uppercase leading-tight">--</p>
@@ -53,14 +58,47 @@
         <a id="gps-link" target="_blank" class="hidden w-full bg-white text-black font-black py-4 rounded-2xl mb-4 flex items-center justify-center gap-2 transition-transform active:scale-95">
             📍 VIEW LOCATION ON MAP
         </a>
-        <button onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full hover:bg-red-700">Clear Alert</button>
+        <button id="clear-btn" onclick="window.location.reload()" class="text-red-200 text-[10px] font-bold uppercase tracking-widest border border-red-400/30 px-6 py-2 rounded-full">Clear Alert</button>
     </div>
 
-    <button onclick="unpairDevice()" class="fixed bottom-6 text-zinc-800 hover:text-zinc-500 text-[9px] font-black uppercase tracking-widest transition-colors">Reset Connection</button>
+    <button id="reset-btn" onclick="unpairDevice()" class="fixed bottom-6 text-zinc-800 hover:text-zinc-500 text-[9px] font-black uppercase tracking-widest transition-colors">Reset Connection</button>
 
     <script>
+        let currentMLang = 'en';
         let isAudioUnlocked = false;
         let savedID = localStorage.getItem('paired_id');
+
+        const monitorTranslations = {
+            en: {
+                pairTitle: "LINK MONITOR", pairSub: "Enter the Device ID from the Patient's App",
+                pairBtn: "CONNECT NOW", unlockBtn: "Activate Monitor Audio",
+                waiting: "Monitoring Signal...", clearBtn: "Clear Alert",
+                resetBtn: "Reset Connection", unpairConf: "Unpair this monitor?",
+                voiceAlert: "MontCode Alert. Emergency signal from "
+            },
+            es: {
+                pairTitle: "VINCULAR MONITOR", pairSub: "Ingrese el ID del app del paciente",
+                pairBtn: "CONECTAR AHORA", unlockBtn: "Activar Audio del Monitor",
+                waiting: "Monitoreando Señal...", clearBtn: "Limpiar Alerta",
+                resetBtn: "Reiniciar Conexión", unpairConf: "¿Desvincular este monitor?",
+                voiceAlert: "Alerta MontCode. Señal de emergencia de "
+            }
+        };
+
+        function setMonitorLang(lang) {
+            currentMLang = lang;
+            const t = monitorTranslations[lang];
+            document.getElementById('pair-title').innerText = t.pairTitle;
+            document.getElementById('pair-sub').innerText = t.pairSub;
+            document.getElementById('pair-btn').innerText = t.pairBtn;
+            document.getElementById('unlock-btn').innerText = t.unlockBtn;
+            document.getElementById('waiting-text').innerText = t.waiting;
+            document.getElementById('clear-btn').innerText = t.clearBtn;
+            document.getElementById('reset-btn').innerText = t.resetBtn;
+            
+            document.getElementById('m-btn-en').classList.toggle('grayscale', lang !== 'en');
+            document.getElementById('m-btn-es').classList.toggle('grayscale', lang !== 'es');
+        }
 
         if (savedID) {
             document.getElementById('pairing-screen').classList.add('hidden');
@@ -78,7 +116,7 @@
         }
 
         function unpairDevice() {
-            if(confirm("¿Desea desvincular este monitor?")) {
+            if(confirm(monitorTranslations[currentMLang].unpairConf)) {
                 localStorage.removeItem('paired_id');
                 location.reload();
             }
@@ -87,23 +125,30 @@
         function unlockAudio() {
             isAudioUnlocked = true;
             document.getElementById('audio-lock').classList.add('hidden');
+            // Play initial silent sound to wake up the engine
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             osc.start(); osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        function playEmergencySiren() {
+        function playSiren() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
-            osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 1.0);
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 2.0);
+            
+            osc.type = 'square'; // Sonido más penetrante
+            osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+            osc.frequency.linearRampToValueAtTime(660, audioCtx.currentTime + 0.6);
+            
+            gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
         }
 
         function initPusher(channelID) {
@@ -124,30 +169,14 @@
                 }
 
                 if (isAudioUnlocked) {
-                    playEmergencySiren();
-                    setTimeout(() => playEmergencyVoice(data), 1000);
+                    playSiren();
+                    setTimeout(() => {
+                        const utterance = new SpeechSynthesisUtterance();
+                        utterance.text = monitorTranslations[currentMLang].voiceAlert + data.patient + ". " + data.provider;
+                        utterance.lang = currentMLang === 'es' ? 'es-US' : 'en-US';
+                        window.speechSynthesis.speak(utterance);
+                    }, 1600);
                 }
-            });
-        }
-
-        function playEmergencyVoice(data) {
-            const isSpanish = data.provider.includes("AYUDA") || data.provider.includes("LLAME");
-            const utterance = new SpeechSynthesisUtterance();
-            utterance.text = isSpanish 
-                ? `Alerta Mont Code. ${data.patient} necesita ayuda inmediata. ${data.provider}` 
-                : `Mont Code Alert. Emergency signal from ${data.patient}. ${data.provider}`;
-            utterance.lang = isSpanish ? 'es-US' : 'en-US';
-            utterance.rate = 0.9;
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // --- REGISTRO DE SERVICE WORKER Y NOTIFICACIONES PUSH ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then(reg => {
-                    console.log('SW activo');
-                    Notification.requestPermission();
-                });
             });
         }
     </script>
